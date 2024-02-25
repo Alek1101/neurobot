@@ -36,7 +36,7 @@ def question_treatment(m):
         bot.send_message(user_id, text='Отправь промт текстовым сообщением')
         bot.register_next_step_handler(m, question_treatment)
         return
-    if m.text == '/continue' or m.text == '/solve_task':
+    if m.text[0] == '/':
         bot.send_message(m.chat.id, 'Сначала задай свой вопрос.')
         bot.register_next_step_handler(m, question_treatment)
         return
@@ -64,8 +64,6 @@ def question_continuation(m):
         markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
         markup.add('/solve_task')
         bot.send_message(m.chat.id, 'Сначала задай вопрос с помощью команды /solve_task.', reply_markup=markup)
-
-
 #     Продолжение ответа
 
 
