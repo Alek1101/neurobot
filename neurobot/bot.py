@@ -1,6 +1,7 @@
 import telebot
 from API_TOKEN import TOKEN
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
+from neuro import ask, save_progress, load_progress
 
 bot = telebot.TeleBot(TOKEN)
 
@@ -29,6 +30,7 @@ def instruction(m):
 
 
 def question_treatment(m):
+    id = m.from_user.id
     global check
     check = False
     user_id = m.from_user.id
@@ -41,30 +43,37 @@ def question_treatment(m):
         bot.register_next_step_handler(m, question_treatment)
         return
     user_prompt = m.text
+    save_progress(id, user_prompt)
     bot.send_message(m.chat.id, 'Промт принят!')
     check = True
-    # bot.send_chat_action(m.chat.id, 'typing')
+    # bot.send_chat_action(m.chat.id, 'анализирует...')
+    bot.send_message(m.chat.id, ask(user_prompt))
     # Сообщение от GPT
     #     bot.send_message(m.chat.id, '')
     markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
     markup.add('/continue', '/solve_task')
-    bot.send_message(m.chat.id, '/continue для более подробного ответа, \n'
+    bot.send_message(m.chat.id, '/continue для продолжения, \n'
                                 '/solve_task - для нового вопроса.', reply_markup=markup)
 
 
 @bot.message_handler(commands=['continue'])
 def question_continuation(m):
+    id = m.from_user.id
     if check:
-        bot.send_message(m.chat.id, '"')
+        # bot.send_chat_action(m.chat.id, 'усиленно думает...')
+        bot.send_message(m.chat.id, 'Продолжение ответа...')
+        bot.send_message(m.chat.id, ask('Продолжи:' + load_progress(id)))
         markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
         markup.add('/continue', '/solve_task')
-        bot.send_message(m.chat.id, '/continue для более подробного ответа, \n'
+        bot.send_message(m.chat.id, '/continue для продолжения, \n'
                                     '/solve_task - для нового вопроса.', reply_markup=markup)
     else:
         markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
         markup.add('/solve_task')
         bot.send_message(m.chat.id, 'Сначала задай вопрос с помощью команды /solve_task.', reply_markup=markup)
+
+
 #     Продолжение ответа
 
 
-bot.polling()
+bot.infinity_polling()
