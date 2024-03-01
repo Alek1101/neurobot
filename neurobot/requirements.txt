@@ -1,0 +1,3 @@
+pyTelegramBotAPI==4.16.1
+Requests==2.31.0
+transformers==4.37.2
