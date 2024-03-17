@@ -20,9 +20,9 @@ def ask_gpt(language: str, level: str, question: str, assistant_content=None):
     )
     if response.status_code == 200:
         result = response.json()['choices'][0]['message']['content']
-        return result, True
+        return result
     else:
-        return response.json(), False
+        return response.json()
 
 
 def count_tokens(prompt: str):
@@ -31,5 +31,11 @@ def count_tokens(prompt: str):
         return False
     else:
         return True
+
+
+def str_sew(text: str):
+    a = text.split()
+    a = ''.join(a)
+    return a
 
 

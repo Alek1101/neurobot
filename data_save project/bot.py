@@ -3,7 +3,8 @@ import logging
 import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 from config import TOKEN, languages
-from gpt import count_tokens, ask_gpt
+from gpt import count_tokens, ask_gpt, str_sew
+import database
 
 bot = telebot.TeleBot(TOKEN)
 
@@ -58,6 +59,9 @@ def names(m):
 
 @bot.message_handler(commands=['ask'])
 def ask_bot(m):
+    user_id = m.from_user.id
+    database.create_table()
+    database.delete_data(user_id)
     bot.send_message(m.chat.id, 'Задайте свой вопрос об одном из следующих языков программирования:',
                      reply_markup=create_keyboard(languages))
     bot.register_next_step_handler(m, language_choice)
@@ -70,7 +74,9 @@ def language_choice(m):
         bot.register_next_step_handler(m, language_choice)
     else:
         language = m.text
-        user_data.append(language)
+        # user_data.append(language)
+        id = m.from_user.id
+        database.insert_row([id, language, '', '', ''])
         bot.send_message(m.chat.id, 'Выберите свой уровень: ',
                          reply_markup=create_keyboard(['начинающий', 'продвинутый']))
         bot.register_next_step_handler(m, level_choice)
@@ -83,22 +89,29 @@ def level_choice(m):
         bot.register_next_step_handler(m, level_choice)
     else:
         level = m.text
-        user_data.append(level)
+        user_id = m.from_user.id
+        database.update_data(user_id, 'level', level)
         bot.send_message(m.chat.id, 'Задайте свой вопрос')
         bot.register_next_step_handler(m, gpt_answer)
 
 
 def gpt_answer(m):
     task = m.text
+    user_id = m.from_user.id
     if not count_tokens(task):
         bot.send_message(m.chat.id, 'Слишком длинный вопрос.\nПопробуйте ещё раз.')
         bot.register_next_step_handler(m, gpt_answer)
     else:
-        user_data.append(task)
+        database.update_data(user_id, 'task', task)
         bot.send_message(m.chat.id, 'Вопрос принят, ожидайте ответа...')
         try:
-            bot.send_message(m.chat.id, ask_gpt(user_data[0], user_data[1], user_data[2]),
-                             reply_markup=create_keyboard(['завершить ответ', 'продолжить ответ']))
+            answer = ask_gpt(database.get_data_for_user(user_id)[2],
+                             database.get_data_for_user(user_id)[3],
+                             database.get_data_for_user(user_id)[4])
+            print(answer)
+            bot.send_message(m.chat.id, answer, reply_markup=create_keyboard(['завершить ответ', 'продолжить ответ']))
+            database.update_data(user_id, 'answer', str_sew(answer))
+            bot.register_next_step_handler(m, gpt_continue)
         except:
             bot.send_message(m.chat.id, 'Не удалось получить ответа от нейросети.\nПопробуйте ещё раз.')
             logging.warning('Ошибка при генерации ответа нейросетью.')
@@ -106,10 +119,24 @@ def gpt_answer(m):
 
 
 def gpt_continue(m):
+    user_id = m.from_user.id
     if m.text == 'завершить ответ':
         bot.send_message(m.chat.id, 'Ответ завершён')
-    # elif m.text == 'продолжить ответ':
-
+        database.delete_data(user_id)
+    elif m.text == 'продолжить ответ':
+        bot.send_message(m.chat.id, 'Продолжаю ответ...')
+        try:
+            answer = ask_gpt(database.get_data_for_user(user_id)[2],
+                             database.get_data_for_user(user_id)[3],
+                             database.get_data_for_user(user_id)[4],
+                             database.get_data_for_user(user_id)[5])
+            database.update_data(user_id, 'answer', str_sew(answer))
+            bot.send_message(m.chat.id, answer, reply_markup=create_keyboard(['завершить ответ', 'продолжить ответ']))
+            bot.register_next_step_handler(m, gpt_continue)
+        except:
+            bot.send_message(m.chat.id, 'Не удалось получить ответа от нейросети.\nПопробуйте ещё раз.')
+            logging.warning('Ошибка при генерации ответа нейросетью.')
+            bot.register_next_step_handler(m, gpt_continue)
 
 
 bot.polling()
